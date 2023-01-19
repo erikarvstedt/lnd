@@ -642,8 +642,8 @@ func (r *RPCKeyRing) ComputeInputScript(tx *wire.MsgTx,
 // submitted as well to reduce the number of method calls necessary later on.
 func (r *RPCKeyRing) MuSig2CreateSession(keyLoc keychain.KeyLocator,
 	pubKeys []*btcec.PublicKey, tweaks *input.MuSig2Tweaks,
-	otherNonces [][musig2.PubNonceSize]byte) (*input.MuSig2SessionInfo,
-	error) {
+	otherNonces [][musig2.PubNonceSize]byte,
+	sessionOpts ...musig2.SessionOption) (*input.MuSig2SessionInfo, error) {
 
 	// We need to serialize all data for the RPC call. We can do that by
 	// putting everything directly into the request struct.
