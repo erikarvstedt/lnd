@@ -26,6 +26,7 @@ import (
 	"github.com/lightningnetwork/lnd/channeldb"
 	"github.com/lightningnetwork/lnd/channeldb/models"
 	"github.com/lightningnetwork/lnd/input"
+	"github.com/lightningnetwork/lnd/keychain"
 	"github.com/lightningnetwork/lnd/lnwallet/chainfee"
 	"github.com/lightningnetwork/lnd/lnwire"
 	"github.com/lightningnetwork/lnd/shachain"
@@ -5130,7 +5131,7 @@ func (lc *LightningChannel) RevokeCurrentCommitment() (*lnwire.RevokeAndAck,
 		)
 	}
 
-	return revocationMsg, newCommitment.Htlcs, nil
+	return revocationMsg, newCommitment.Htlcs, finalHtlcs, nil
 }
 
 // ReceiveRevocation processes a revocation sent by the remote party for the
