@@ -59,7 +59,9 @@ func assertOutputExistsByValue(t *testing.T, commitTx *wire.MsgTx,
 
 // testAddSettleWorkflow tests a simple channel scenario where Alice and Bob
 // add, the settle an HTLC between themselves.
-func testAddSettleWorkflow(t *testing.T, tweakless bool) {
+func testAddSettleWorkflow(t *testing.T, tweakless bool,
+	chanTypeModifier channeldb.ChannelType) {
+
 	// Create a test channel which will be used for the duration of this
 	// unittest. The channel will be funded evenly with Alice having 5 BTC,
 	// and Bob having 5 BTC.
@@ -68,7 +70,11 @@ func testAddSettleWorkflow(t *testing.T, tweakless bool) {
 		chanType = channeldb.SingleFunderBit
 	}
 
-	aliceChannel, bobChannel, err := CreateTestChannels(t, chanType)
+	if chanTypeModifier != 0 {
+		chanType |= chanTypeModifier
+	}
+
+	aliceChannel, bobChannel, cleanUp, err := CreateTestChannels(chanType)
 	require.NoError(t, err, "unable to create test channels")
 
 	paymentPreimage := bytes.Repeat([]byte{1}, 32)
@@ -186,12 +192,18 @@ func testAddSettleWorkflow(t *testing.T, tweakless bool) {
 
 	// Both commitment transactions should have three outputs, and one of
 	// them should be exactly the amount of the HTLC.
-	if len(aliceChannel.channelState.LocalCommitment.CommitTx.TxOut) != 3 {
+	numOutputs := 3
+	if chanTypeModifier.HasAnchors() {
+		// In this case we expect two extra outputs as both sides need an
+		// anchor output.
+		numOutputs = 5
+	}
+	if len(aliceChannel.channelState.LocalCommitment.CommitTx.TxOut) != numOutputs {
 		t.Fatalf("alice should have three commitment outputs, instead "+
 			"have %v",
 			len(aliceChannel.channelState.LocalCommitment.CommitTx.TxOut))
 	}
-	if len(bobChannel.channelState.LocalCommitment.CommitTx.TxOut) != 3 {
+	if len(bobChannel.channelState.LocalCommitment.CommitTx.TxOut) != numOutputs {
 		t.Fatalf("bob should have three commitment outputs, instead "+
 			"have %v",
 			len(bobChannel.channelState.LocalCommitment.CommitTx.TxOut))
@@ -332,9 +344,17 @@ func TestSimpleAddSettleWorkflow(t *testing.T) {
 	for _, tweakless := range []bool{true, false} {
 		tweakless := tweakless
 		t.Run(fmt.Sprintf("tweakless=%v", tweakless), func(t *testing.T) {
-			testAddSettleWorkflow(t, tweakless)
+			testAddSettleWorkflow(t, tweakless, 0)
 		})
 	}
+	t.Run("anchors", func(t *testing.T) {
+		testAddSettleWorkflow(
+			t, true, channeldb.AnchorOutputsBit|channeldb.ZeroHtlcTxFeeBit,
+		)
+	})
+	t.Run("taproot", func(t *testing.T) {
+		testAddSettleWorkflow(t, true, channeldb.SimpleTaprootFeatureBit)
+	})
 }
 
 // TestChannelZeroAddLocalHeight tests that we properly set the addCommitHeightLocal
