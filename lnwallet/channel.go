@@ -4462,11 +4462,30 @@ func genHtlcSigValidationJobs(localCommitmentView *commitment,
 					return nil, err
 				}
 
+				htlcAmt := int64(htlc.Amount.ToSatoshis())
+
+				if chanType.IsTaproot() {
+					// TODO(roasbeef): add abstraction in front
+					prevFetcher := txscript.NewCannedPrevOutputFetcher(
+						htlc.ourPkScript, htlcAmt,
+					)
+					hashCache := txscript.NewTxSigHashes(
+						successTx, prevFetcher,
+					)
+					tapLeaf := txscript.NewBaseTapLeaf(
+						htlc.ourWitnessScript,
+					)
+					return txscript.CalcTapscriptSignaturehash(
+						hashCache, sigHashType, successTx, 0,
+						prevFetcher, tapLeaf,
+					)
+				}
+
 				hashCache := input.NewTxSigHashesV0Only(successTx)
 				sigHash, err := txscript.CalcWitnessSigHash(
 					htlc.ourWitnessScript, hashCache,
 					sigHashType, successTx, 0,
-					int64(htlc.Amount.ToSatoshis()),
+					htlcAmt,
 				)
 				if err != nil {
 					return nil, err
@@ -4479,6 +4498,13 @@ func genHtlcSigValidationJobs(localCommitmentView *commitment,
 			if i >= len(htlcSigs) {
 				return nil, fmt.Errorf("not enough HTLC " +
 					"signatures")
+			}
+
+			// If this is a taproot channel, then we'll convert it
+			// to a schnorr signature, so we can get correct type
+			// from ToSignature below.
+			if chanType.IsTaproot() {
+				htlcSigs[i].ForceSchnorr()
 			}
 
 			// With the sighash generated, we'll also store the
@@ -4518,11 +4544,30 @@ func genHtlcSigValidationJobs(localCommitmentView *commitment,
 					return nil, err
 				}
 
+				htlcAmt := int64(htlc.Amount.ToSatoshis())
+
+				if chanType.IsTaproot() {
+					// TODO(roasbeef): add abstraction in front
+					prevFetcher := txscript.NewCannedPrevOutputFetcher(
+						htlc.ourPkScript, htlcAmt,
+					)
+					hashCache := txscript.NewTxSigHashes(
+						timeoutTx, prevFetcher,
+					)
+					tapLeaf := txscript.NewBaseTapLeaf(
+						htlc.ourWitnessScript,
+					)
+					return txscript.CalcTapscriptSignaturehash(
+						hashCache, sigHashType, timeoutTx, 0,
+						prevFetcher, tapLeaf,
+					)
+				}
+
 				hashCache := input.NewTxSigHashesV0Only(timeoutTx)
 				sigHash, err := txscript.CalcWitnessSigHash(
 					htlc.ourWitnessScript, hashCache,
 					sigHashType, timeoutTx, 0,
-					int64(htlc.Amount.ToSatoshis()),
+					htlcAmt,
 				)
 				if err != nil {
 					return nil, err
@@ -4537,6 +4582,13 @@ func genHtlcSigValidationJobs(localCommitmentView *commitment,
 					"signatures")
 			}
 
+			// If this is a taproot channel, then we'll convert it
+			// to a schnorr signature, so we can get correct type
+			// from ToSignature below.
+			if chanType.IsTaproot() {
+				htlcSigs[i].ForceSchnorr()
+			}
+
 			// With the sighash generated, we'll also store the
 			// signature so it can be written to disk if this state
 			// is valid.
@@ -4544,6 +4596,7 @@ func genHtlcSigValidationJobs(localCommitmentView *commitment,
 			if err != nil {
 				return nil, err
 			}
+
 			htlc.sig = sig
 
 		default:
