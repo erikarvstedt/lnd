@@ -785,8 +785,9 @@ func (c *ChanCloser) proposeCloseSigned(fee btcutil.Amount) (*lnwire.ClosingSign
 		return nil, err
 	}
 
-	// We'll note our last signature and proposed fee so when the remote party
-	// responds we'll be able to decide if we've agreed on fees or not.
+	// We'll note our last signature and proposed fee so when the remote
+	// party responds we'll be able to decide if we've agreed on fees or
+	// not.
 	c.lastFeeProposal = fee
 	parsedSig, err := lnwire.NewSigFromSignature(rawSig)
 	if err != nil {
